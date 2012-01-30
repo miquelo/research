@@ -1,0 +1,29 @@
+
+ Què necessites?
+ ---------------
+ 
+ Les eines típiques de compilació incloent el 'pkg-config'. A més, òbviament,
+ aquest petit projecte necessita la biblioteca i els fitxers de desenvolupament
+ del GLOOX (>= 0.9). Si tens alguna cosa basada en Debian ho trobaràs en el
+ paquest 'libgloox-dev'.
+ 
+ Petit problema amb el 'pkg-config' i 'gloox'
+ --------------------------------------------
+ 
+ Am l'Ubuntu 10.04, almenys, no es configura correctament el 'pkg-config' per
+ trobar les capçaleres del 'gloox' (0.9.9.5), si més no, quan l'instal·les amb
+ 'apt'. Si és el teu cas, segueix les següents instruccions.
+ 
+ Edita el fitxer gloox.pc del 'pkg-config'. Podria ser
+ 
+ # nano /usr/lib/pkgconfig/gloox.pc
+ 
+ Si veus la línia
+ 
+ Cflags: -I${includedir}
+ 
+ Canvia-la per
+ 
+ Cflags: -I${includedir}/gloox
+ 
+ I ja podràs compilar feliçment.
