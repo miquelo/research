@@ -1,4 +1,5 @@
-ACLOCAL_AMFLAGS = -I m4 --install
+
+ACLOCAL_AMFLAGS = `mkdir m4` -I m4 --install
 
 SUBDIRS = \
 	src
