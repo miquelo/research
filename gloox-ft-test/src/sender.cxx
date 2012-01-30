@@ -15,6 +15,7 @@
 #include <siprofileft.h>
 #include <siprofilefthandler.h>
 #include <socks5bytestream.h>
+#include <socks5bytestreamdatahandler.h>
 #include <socks5bytestreamserver.h>
 #include <stanza.h>
 
