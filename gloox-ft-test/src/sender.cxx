@@ -42,6 +42,11 @@ public gloox::SOCKS5BytestreamDataHandler
 			long offset, long length);
 	void handleFTRequestError(gloox::Stanza* stanza, const std::string& sid);
 	void handleFTSOCKS5Bytestream(gloox::SOCKS5Bytestream* s5b);
+	void handleSOCKS5Data(gloox::SOCKS5Bytestream* s5b,
+			const std::string& data);
+	void handleSOCKS5Error(gloox::SOCKS5Bytestream* s5b, gloox::Stanza* stanza);
+	void handleSOCKS5Open(gloox::SOCKS5Bytestream* s5b);
+	void handleSOCKS5Close(gloox::SOCKS5Bytestream* s5b);
 	
 	private:
 	gloox::SIProfileFT* _ft;
