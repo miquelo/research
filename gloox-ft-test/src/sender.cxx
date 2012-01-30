@@ -11,7 +11,6 @@
 #include <client.h>
 #include <connectionlistener.h>
 #include <jid.h>
-#include <presencehandler.h>
 #include <siprofileft.h>
 #include <siprofilefthandler.h>
 #include <socks5bytestream.h>
@@ -21,21 +20,31 @@
 
 #include "common.h"
 
+class sender_handler;
+
+struct sender_task
+{
+	sender_handler* send_h;
+	pthread_t th;
+	gloox::SOCKS5Bytestream* bs;
+};
+
 class sender_handler:
 public gloox::ConnectionListener,
-public gloox::PresenceHandler,
 public gloox::SIProfileFTHandler,
 public gloox::SOCKS5BytestreamDataHandler
 {
 	public:
-	void init(gloox::SIProfileFT* ft, const char* r_uid, const char* filename);
+	~sender_handler(void);
+	void init(gloox::SIProfileFT* ft, gloox::Client* cli,
+			gloox::SOCKS5BytestreamServer* serv, const char* r_uid,
+			const char* filename);
 	void onConnect(void);
 	bool onTLSConnect(const gloox::CertInfo& info);
 	void onDisconnect(gloox::ConnectionError error);
 	void onStreamEvent(gloox::StreamEvent event);
 	void onResourceBindError(gloox::ResourceBindError error);
 	void onSessionCreateError(gloox::SessionCreateError error);
-	void handlePresence(gloox::Stanza* stanza);
 	void handleFTRequest (const gloox::JID& from, const std::string& id,
 			const std::string& sid, const std::string& name, long size,
 			const std::string& hash, const std::string& date,
@@ -51,18 +60,24 @@ public gloox::SOCKS5BytestreamDataHandler
 	
 	private:
 	gloox::SIProfileFT* _ft;
+	gloox::Client* _cli;
+	gloox::SOCKS5BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
+	std::list<sender_task*> _task_l;
 };
 
 using namespace std;
 using namespace gloox;
+
+static void* data_transfer_f(void* arg);
 
 int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 		const char* s_pass, const char* r_uid, const char* filename)
 {
 	JID jid(s_uid);
 	Client* cli = new Client(jid, s_pass);
+	
 	sender_handler send_h;
 	
 	int p_port_i = atoi(p_port);
@@ -80,10 +95,9 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	ft->registerSOCKS5BytestreamServer(server);
 	ft->addStreamHost(JID(p_id), "localhost", p_port_i);
-	send_h.init(ft, r_uid, filename);
+	send_h.init(ft, cli, server, r_uid, filename);
 
 	cli->registerConnectionListener(&send_h);
-	cli->registerPresenceHandler(&send_h);
 	cli->connect();
 
 	delete server;
@@ -93,10 +107,19 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	return EXIT_SUCCESS;
 }
 
-void sender_handler::init(SIProfileFT* ft, const char* r_uid,
-		const char* filename)
+sender_handler::~sender_handler(void)
+{
+	list<sender_task*>::const_iterator it = _task_l.begin();
+	while (it not_eq _task_l.end())
+		pthread_join((*it++)->th, NULL);
+}
+
+void sender_handler::init(SIProfileFT* ft, Client* cli,
+		SOCKS5BytestreamServer* serv, const char* r_uid, const char* filename)
 {
 	_ft = ft;
+	_serv = serv;
+	_cli = cli;
 	_r_uid = r_uid;
 	_filename = filename;
 }
@@ -104,15 +127,17 @@ void sender_handler::init(SIProfileFT* ft, const char* r_uid,
 void sender_handler::onConnect(void)
 {
 	clog << "Connection established..." << endl;
-	
 	clog << "Starting transfer" << endl;
 	
 	JID jid(_r_uid);
-	string sid = _ft->requestFT(jid, _filename, 851);
-	if (sid.empty())
-		cerr << " Transfer rejected!" << endl;
-	else
-		clog << " Transfer accepted by " << sid << endl;
+	if (not _ft->requestFT(jid, _filename, 851).empty())
+	{
+		clog << " Request done." << endl;
+		clog << " Connection status: " << _cli->recv(1) << endl;
+		clog << " Receiving bytestreams from server...";
+		while (true)
+			_serv->recv(1);
+	}
 }
 
 bool sender_handler::onTLSConnect(const CertInfo& info)
@@ -130,7 +155,10 @@ void sender_handler::onDisconnect(ConnectionError error)
 {
 	clog << "Connection closed." << endl;
 	if (error not_eq ConnNoError)
-		cerr << "Because there was a connection error..." << endl;
+	{
+		cerr << "Because there was a connection error (" << error << ") ...";
+		cerr << endl;
+	}
 }
 
 void sender_handler::onResourceBindError(ResourceBindError error)
@@ -141,11 +169,6 @@ void sender_handler::onResourceBindError(ResourceBindError error)
 void sender_handler::onSessionCreateError(SessionCreateError error)
 {
 	cerr << "Session create error!" << endl;
-}
-
-void sender_handler::handlePresence(Stanza* stanza)
-{
-	clog << "Handle presence" << endl;
 }
 
 void sender_handler::handleFTRequest(const JID& from, const string& id,
@@ -164,6 +187,8 @@ void sender_handler::handleFTRequestError(Stanza* stanza, const string& sid)
 void sender_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
 {
 	clog << "Handle bytestream" << endl;
+	
+	// XXX No arriba aquí!!!
 }
 
 void sender_handler::handleSOCKS5Data(SOCKS5Bytestream* s5b,
@@ -185,4 +210,10 @@ void sender_handler::handleSOCKS5Open(SOCKS5Bytestream* s5b)
 void sender_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
 {
 	clog << "Handle SOCKS5 close" << endl;
+}
+
+void* data_transfer_f(void* arg)
+{
+	sender_handler* send_h = static_cast<sender_handler*>(arg);
+	return NULL;
 }

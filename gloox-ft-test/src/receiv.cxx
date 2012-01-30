@@ -14,7 +14,6 @@
 #include <client.h>
 #include <connectionlistener.h>
 #include <jid.h>
-#include <presencehandler.h>
 #include <siprofileft.h>
 #include <siprofilefthandler.h>
 #include <socks5bytestream.h>
@@ -34,12 +33,10 @@ struct receiver_task
 
 class receiver_handler:
 public gloox::ConnectionListener,
-public gloox::PresenceHandler,
 public gloox::SIProfileFTHandler,
 public gloox::SOCKS5BytestreamDataHandler
 {
 	public:
-	receiver_handler(void);
 	~receiver_handler(void);
 	void init(gloox::SIProfileFT* ft);
 	void onConnect(void);
@@ -48,7 +45,6 @@ public gloox::SOCKS5BytestreamDataHandler
 	void onStreamEvent(gloox::StreamEvent event);
 	void onResourceBindError(gloox::ResourceBindError error);
 	void onSessionCreateError(gloox::SessionCreateError error);
-	void handlePresence(gloox::Stanza* stanza);
 	void handleFTRequest (const gloox::JID& from, const std::string& id,
 			const std::string& sid, const std::string& name, long size,
 			const std::string& hash, const std::string& date,
@@ -73,32 +69,24 @@ public gloox::SOCKS5BytestreamDataHandler
 using namespace std;
 using namespace gloox;
 
-int receiver_main(const char* p_id, const char* p_port, const char* r_uid,
-		const char* r_pass)
+static void* data_transfer_f(void* arg);
+
+int receiver_main(const char* r_uid, const char* r_pass)
 {
 	JID jid(r_uid);
 	Client* cli = new Client(jid, r_pass);
 	receiver_handler recv_h;
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &recv_h);
-	ft->addStreamHost(JID(p_id), "localhost", atoi(p_port));
 	recv_h.init(ft);
 
 	cli->registerConnectionListener(&recv_h);
-	cli->registerPresenceHandler(&recv_h);
 	cli->connect();
 
 	delete ft;
 	delete cli;
 	
 	return EXIT_SUCCESS;
-}
-
-void* data_transfer_f(void* arg);
-
-receiver_handler::receiver_handler(void):
-_ft(NULL)
-{
 }
 
 receiver_handler::~receiver_handler(void)
@@ -146,11 +134,6 @@ void receiver_handler::onSessionCreateError(SessionCreateError error)
 	cerr << "Session create error!" << endl;
 }
 
-void receiver_handler::handlePresence(Stanza* stanza)
-{
-	clog << "Handle presence" << endl;
-}
-
 void receiver_handler::handleFTRequest(const JID& from, const string& id,
 		const string& sid, const string& name, long size, const string& hash,
 		const string& date, const string& mimetype, const string& desc,
@@ -171,7 +154,6 @@ void receiver_handler::handleFTRequestError(Stanza* stanza, const string& sid)
 void receiver_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
 {
 	clog << "Handle bytestream" << endl;
-	s5b->registerSOCKS5BytestreamDataHandler(this);
 	_create_task(s5b);
 }
 
@@ -198,13 +180,19 @@ void receiver_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
 
 void receiver_handler::run_data_transfer(SOCKS5Bytestream* s5b)
 {
-	clog << "Running data transfer" << endl;
-	
-	ConnectionError error = ConnNoError;
-	while ((error = s5b->recv()) == ConnNoError)
+	s5b->registerSOCKS5BytestreamDataHandler(this);
+	if (not s5b->connect())
+		cerr << " Bytestream connection error!" << endl;
+	else
 	{
+		clog << "Running data transfer" << endl;
+	
+		ConnectionError error = ConnNoError;
+		while ((error = s5b->recv()) == ConnNoError)
+		{
+		}
+		clog << "Transfer finished. Temination code: " << error << endl;
 	}
-	clog << "Transfer finished. Temination code: " << error << endl;
 }
 
 void receiver_handler::remove_task(receiver_task* task)
@@ -226,13 +214,9 @@ void receiver_handler::_create_task(SOCKS5Bytestream* s5b)
 void* data_transfer_f(void* arg)
 {
 	receiver_task* task = static_cast<receiver_task*>(arg);
-	SOCKS5Bytestream* s5b = task->bs;
 	receiver_handler* recv_h = task->recv_h;
 
-	if (not s5b->connect())
-		cerr << " Bytestream connection error!" << endl;
-	else
-		recv_h->run_data_transfer(s5b);
+	recv_h->run_data_transfer(task->bs);
 	
 	recv_h->remove_task(task);
 	return NULL;

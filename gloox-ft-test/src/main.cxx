@@ -19,16 +19,15 @@ int main(int argc, char* argv[])
 		if (strcmp(argv[1], "send") == 0 and argc == 8)
 			return sender_main(argv[2], argv[3], argv[4], argv[5], argv[6],
 					argv[7]);
-		if (strcmp(argv[1], "receive") == 0 and argc == 6)
-			return receiver_main(argv[2], argv[3], argv[4], argv[5]);
+		if (strcmp(argv[1], "receive") == 0 and argc == 4)
+			return receiver_main(argv[2], argv[3]);
 	}
 	
 	cout << "Usage: gloox-ft-test" << endl << endl;
 	cout << "  send <local proxy user@server> <local proxy port> \\" << endl;
 	cout << "       <sender user@server/resource> <sender password> \\" << endl;
 	cout << "       <receiver user@server/resource> <filename>" << endl << endl;
-	cout << "  receive <local proxy user@server> <local proxy port> \\" << endl;
-	cout << "          <receiver user@server/resource> <receiver password>";
+	cout << "  receive <receiver user@server/resource> <receiver password>";
 	cout << endl << endl;
 	return EXIT_FAILURE;
 }
