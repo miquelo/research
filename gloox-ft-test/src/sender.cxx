@@ -9,15 +9,15 @@
 #include <fstream>
 #include <iostream>
 
+#include <gloox/bytestream.h>
+#include <gloox/bytestreamdatahandler.h>
 #include <gloox/client.h>
 #include <gloox/connectionlistener.h>
+#include <gloox/iq.h>
 #include <gloox/jid.h>
 #include <gloox/siprofileft.h>
 #include <gloox/siprofilefthandler.h>
-#include <gloox/socks5bytestream.h>
-#include <gloox/socks5bytestreamdatahandler.h>
 #include <gloox/socks5bytestreamserver.h>
-#include <gloox/stanza.h>
 
 #include "common.h"
 
@@ -27,13 +27,13 @@ struct sender_task
 {
 	sender_handler* send_h;
 	pthread_t th;
-	gloox::SOCKS5Bytestream* bs;
+	gloox::Bytestream* bs;
 };
 
 class sender_handler:
 public gloox::ConnectionListener,
 public gloox::SIProfileFTHandler,
-public gloox::SOCKS5BytestreamDataHandler
+public gloox::BytestreamDataHandler
 {
 	public:
 	~sender_handler(void);
@@ -46,20 +46,21 @@ public gloox::SOCKS5BytestreamDataHandler
 	void onStreamEvent(gloox::StreamEvent event);
 	void onResourceBindError(gloox::ResourceBindError error);
 	void onSessionCreateError(gloox::SessionCreateError error);
-	void handleFTRequest (const gloox::JID& from, const std::string& id,
+	void handleFTRequest(const gloox::JID& from, const gloox::JID& to,
 			const std::string& sid, const std::string& name, long size,
 			const std::string& hash, const std::string& date,
-			const std::string& mimetype, const std::string& desc, int stypes,
-			long offset, long length);
-	void handleFTRequestError(gloox::Stanza* stanza, const std::string& sid);
-	void handleFTSOCKS5Bytestream(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Data(gloox::SOCKS5Bytestream* s5b,
+			const std::string& mimetype, const std::string& desc, int stypes);
+	void handleFTRequestError(const gloox::IQ& iq, const std::string& sid);
+	void handleFTBytestream(gloox::Bytestream* bs);
+	const std::string handleOOBRequestResult(const gloox::JID& from,
+			const gloox::JID& to, const std::string& sid);
+	void handleBytestreamData(gloox::Bytestream* bs,
 			const std::string& data);
-	void handleSOCKS5Error(gloox::SOCKS5Bytestream* s5b, gloox::Stanza* stanza);
-	void handleSOCKS5Open(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Close(gloox::SOCKS5Bytestream* s5b);
+	void handleBytestreamError(gloox::Bytestream* bs, const gloox::IQ& iq);
+	void handleBytestreamOpen(gloox::Bytestream* bs);
+	void handleBytestreamClose(gloox::Bytestream* bs);
 	void run_server_poll(void);
-	void run_data_transfer(gloox::SOCKS5Bytestream* s5b);
+	void run_data_transfer(gloox::Bytestream* bs);
 	void remove_task(sender_task* task);
 	
 	private:
@@ -71,7 +72,7 @@ public gloox::SOCKS5BytestreamDataHandler
 	pthread_t _server_th;
 	std::list<sender_task*> _task_l;
 	void _server_poll(void);
-	void _create_task(gloox::SOCKS5Bytestream* s5b);
+	void _create_task(gloox::Bytestream* bs);
 };
 
 using namespace std;
@@ -181,44 +182,49 @@ void sender_handler::onSessionCreateError(SessionCreateError error)
 	cerr << "Session create error!" << endl;
 }
 
-void sender_handler::handleFTRequest(const JID& from, const string& id,
-		const string& sid, const string& name, long size, const string& hash,
-		const string& date, const string& mimetype, const string& desc,
-		int stypes, long offset, long length)
+void sender_handler::handleFTRequest(const JID& from, const JID& to,
+		const string& sid, const string& name, long size,
+		const string& hash, const string& date, const string& mimetype,
+		const string& desc, int stypes)
 {
 	clog << "Handle FT request" << endl;
 }
 
-void sender_handler::handleFTRequestError(Stanza* stanza, const string& sid)
+void sender_handler::handleFTRequestError(const IQ& iq, const string& sid)
 {
 	clog << "Handle FT request error" << endl;
 }
 
-void sender_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
+void sender_handler::handleFTBytestream(Bytestream* bs)
 {
 	clog << "Handle bytestream" << endl;
-	_create_task(s5b);
+	_create_task(bs);
 }
 
-void sender_handler::handleSOCKS5Data(SOCKS5Bytestream* s5b,
-		const string& data)
+const string sender_handler::handleOOBRequestResult(const JID& from,
+		const JID& to, const string& sid)
 {
-	clog << "Handle SOCKS5 data" << endl;
+	clog << "Handle OOB request result" << endl;
 }
 
-void sender_handler::handleSOCKS5Error(SOCKS5Bytestream* s5b, Stanza* stanza)
+void sender_handler::handleBytestreamData(Bytestream* bs, const string& data)
 {
-	clog << "Handle SOCKS5 error" << endl;
+	clog << "Handle  data" << endl;
 }
 
-void sender_handler::handleSOCKS5Open(SOCKS5Bytestream* s5b)
+void sender_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
 {
-	clog << "Handle SOCKS5 open" << endl;
+	clog << "Handle  error" << endl;
 }
 
-void sender_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
+void sender_handler::handleBytestreamOpen(Bytestream* bs)
 {
-	clog << "Handle SOCKS5 close" << endl;
+	clog << "Handle  open" << endl;
+}
+
+void sender_handler::handleBytestreamClose(Bytestream* bs)
+{
+	clog << "Handle  close" << endl;
 }
 
 void sender_handler::run_server_poll(void)
@@ -235,24 +241,22 @@ void sender_handler::run_server_poll(void)
 	clog << "No more bytestreams" << error << endl;
 }
 
-void sender_handler::run_data_transfer(SOCKS5Bytestream* s5b)
+void sender_handler::run_data_transfer(Bytestream* bs)
 {
-	s5b->registerSOCKS5BytestreamDataHandler(this);
-	if (not s5b->connect())
+	bs->registerBytestreamDataHandler(this);
+	if (not bs->connect())
 		cerr << " Bytestream connection error!" << endl;
 	else
 	{
 		clog << "Running data transfer" << endl;
-		while (true)
+		bool opened = bs->isOpen();
+		clog << "Bytestream opened: " << opened << endl;
+		if (opened)
 		{
-			if (s5b->isOpen())
-			{
-				clog << "Bytestream opened!" << endl;
-				s5b->send("data");
-				clog << "Send done." << endl;
-			}
-			s5b->recv(1);
+			bs->send("data");
+			clog << "Send done." << endl;
 		}
+		bs->recv(1);
 	}
 }
 
@@ -267,11 +271,11 @@ void sender_handler::_server_poll(void)
 	pthread_create(&_server_th, NULL, server_poll_f, this);
 }
 
-void sender_handler::_create_task(SOCKS5Bytestream* s5b)
+void sender_handler::_create_task(Bytestream* bs)
 {
 	sender_task* task = new sender_task;
 	task->send_h = this;
-	task->bs = s5b;
+	task->bs = bs;
 	pthread_create(&task->th, NULL, data_transfer_f, task);
 	
 	_task_l.push_back(task);
