@@ -9,15 +9,15 @@
 #include <fstream>
 #include <iostream>
 
+#include <gloox/bytestream.h>
+#include <gloox/bytestreamdatahandler.h>
 #include <gloox/client.h>
 #include <gloox/connectionlistener.h>
+#include <gloox/iq.h>
 #include <gloox/jid.h>
 #include <gloox/siprofileft.h>
 #include <gloox/siprofilefthandler.h>
-#include <gloox/bytestream.h>
-#include <gloox/bytestreamdatahandler.h>
-#include <gloox/bytestreamserver.h>
-#include <gloox/stanza.h>
+#include <gloox/socks5bytestreamserver.h>
 
 #include "common.h"
 
@@ -38,7 +38,7 @@ public gloox::BytestreamDataHandler
 	public:
 	~sender_handler(void);
 	void init(gloox::SIProfileFT* ft, gloox::Client* cli,
-			gloox::BytestreamServer* serv, const char* r_uid,
+			gloox::SOCKS5BytestreamServer* serv, const char* r_uid,
 			const char* filename);
 	void onConnect(void);
 	bool onTLSConnect(const gloox::CertInfo& info);
@@ -46,32 +46,33 @@ public gloox::BytestreamDataHandler
 	void onStreamEvent(gloox::StreamEvent event);
 	void onResourceBindError(gloox::ResourceBindError error);
 	void onSessionCreateError(gloox::SessionCreateError error);
-	void handleFTRequest (const gloox::JID& from, const std::string& id,
+	void handleFTRequest(const gloox::JID& from, const gloox::JID& to,
 			const std::string& sid, const std::string& name, long size,
 			const std::string& hash, const std::string& date,
-			const std::string& mimetype, const std::string& desc, int stypes,
-			long offset, long length);
-	void handleFTRequestError(gloox::Stanza* stanza, const std::string& sid);
-	void handleFTBytestream(gloox::Bytestream* s5b);
-	void handleData(gloox::Bytestream* s5b,
+			const std::string& mimetype, const std::string& desc, int stypes);
+	void handleFTRequestError(const gloox::IQ& iq, const std::string& sid);
+	void handleFTBytestream(gloox::Bytestream* bs);
+	const std::string handleOOBRequestResult(const gloox::JID& from,
+			const gloox::JID& to, const std::string& sid);
+	void handleBytestreamData(gloox::Bytestream* bs,
 			const std::string& data);
-	void handleError(gloox::Bytestream* s5b, gloox::Stanza* stanza);
-	void handleOpen(gloox::Bytestream* s5b);
-	void handleClose(gloox::Bytestream* s5b);
+	void handleBytestreamError(gloox::Bytestream* bs, const gloox::IQ& iq);
+	void handleBytestreamOpen(gloox::Bytestream* bs);
+	void handleBytestreamClose(gloox::Bytestream* bs);
 	void run_server_poll(void);
-	void run_data_transfer(gloox::Bytestream* s5b);
+	void run_data_transfer(gloox::Bytestream* bs);
 	void remove_task(sender_task* task);
 	
 	private:
 	gloox::SIProfileFT* _ft;
 	gloox::Client* _cli;
-	gloox::BytestreamServer* _serv;
+	gloox::SOCKS5BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
 	pthread_t _server_th;
 	std::list<sender_task*> _task_l;
 	void _server_poll(void);
-	void _create_task(gloox::Bytestream* s5b);
+	void _create_task(gloox::Bytestream* bs);
 };
 
 using namespace std;
@@ -89,7 +90,7 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	sender_handler send_h;
 	
 	int p_port_i = atoi(p_port);
-	BytestreamServer* server = new BytestreamServer(
+	SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
 			cli->logInstance(), p_port_i);
 	if (server->listen() not_eq ConnNoError)
 	{
@@ -101,7 +102,7 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	}
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
-	ft->registerBytestreamServer(server);
+	ft->registerSOCKS5BytestreamServer(server);
 	ft->addStreamHost(JID(p_id), "localhost", p_port_i);
 	send_h.init(ft, cli, server, r_uid, filename);
 
@@ -123,7 +124,7 @@ sender_handler::~sender_handler(void)
 }
 
 void sender_handler::init(SIProfileFT* ft, Client* cli,
-		BytestreamServer* serv, const char* r_uid, const char* filename)
+		SOCKS5BytestreamServer* serv, const char* r_uid, const char* filename)
 {
 	_ft = ft;
 	_serv = serv;
@@ -181,42 +182,47 @@ void sender_handler::onSessionCreateError(SessionCreateError error)
 	cerr << "Session create error!" << endl;
 }
 
-void sender_handler::handleFTRequest(const JID& from, const string& id,
-		const string& sid, const string& name, long size, const string& hash,
-		const string& date, const string& mimetype, const string& desc,
-		int stypes, long offset, long length)
+void sender_handler::handleFTRequest(const JID& from, const JID& to,
+		const string& sid, const string& name, long size,
+		const string& hash, const string& date, const string& mimetype,
+		const string& desc, int stypes)
 {
 	clog << "Handle FT request" << endl;
 }
 
-void sender_handler::handleFTRequestError(Stanza* stanza, const string& sid)
+void sender_handler::handleFTRequestError(const IQ& iq, const string& sid)
 {
 	clog << "Handle FT request error" << endl;
 }
 
-void sender_handler::handleFTBytestream(Bytestream* s5b)
+void sender_handler::handleFTBytestream(Bytestream* bs)
 {
 	clog << "Handle bytestream" << endl;
-	_create_task(s5b);
+	_create_task(bs);
 }
 
-void sender_handler::handleData(Bytestream* s5b,
-		const string& data)
+const string sender_handler::handleOOBRequestResult(const JID& from,
+		const JID& to, const string& sid)
+{
+	clog << "Handle OOB request result" << endl;
+}
+
+void sender_handler::handleBytestreamData(Bytestream* bs, const string& data)
 {
 	clog << "Handle  data" << endl;
 }
 
-void sender_handler::handleError(Bytestream* s5b, Stanza* stanza)
+void sender_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
 {
 	clog << "Handle  error" << endl;
 }
 
-void sender_handler::handleOpen(Bytestream* s5b)
+void sender_handler::handleBytestreamOpen(Bytestream* bs)
 {
 	clog << "Handle  open" << endl;
 }
 
-void sender_handler::handleClose(Bytestream* s5b)
+void sender_handler::handleBytestreamClose(Bytestream* bs)
 {
 	clog << "Handle  close" << endl;
 }
@@ -235,22 +241,22 @@ void sender_handler::run_server_poll(void)
 	clog << "No more bytestreams" << error << endl;
 }
 
-void sender_handler::run_data_transfer(Bytestream* s5b)
+void sender_handler::run_data_transfer(Bytestream* bs)
 {
-	s5b->registerBytestreamDataHandler(this);
-	if (not s5b->connect())
+	bs->registerBytestreamDataHandler(this);
+	if (not bs->connect())
 		cerr << " Bytestream connection error!" << endl;
 	else
 	{
 		clog << "Running data transfer" << endl;
-		bool opened = s5b->isOpen();
+		bool opened = bs->isOpen();
 		clog << "Bytestream opened: " << opened << endl;
 		if (opened)
 		{
-			s5b->send("data");
+			bs->send("data");
 			clog << "Send done." << endl;
 		}
-		s5b->recv(1);
+		bs->recv(1);
 	}
 }
 
@@ -265,11 +271,11 @@ void sender_handler::_server_poll(void)
 	pthread_create(&_server_th, NULL, server_poll_f, this);
 }
 
-void sender_handler::_create_task(Bytestream* s5b)
+void sender_handler::_create_task(Bytestream* bs)
 {
 	sender_task* task = new sender_task;
 	task->send_h = this;
-	task->bs = s5b;
+	task->bs = bs;
 	pthread_create(&task->th, NULL, data_transfer_f, task);
 	
 	_task_l.push_back(task);
