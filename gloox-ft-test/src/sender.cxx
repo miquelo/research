@@ -243,14 +243,16 @@ void sender_handler::run_data_transfer(SOCKS5Bytestream* s5b)
 	else
 	{
 		clog << "Running data transfer" << endl;
-		bool opened = s5b->isOpen();
-		clog << "Bytestream opened: " << opened << endl;
-		if (opened)
+		while (true)
 		{
-			s5b->send("data");
-			clog << "Send done." << endl;
+			if (s5b->isOpen())
+			{
+				clog << "Bytestream opened!" << endl;
+				s5b->send("data");
+				clog << "Send done." << endl;
+			}
+			s5b->recv(1);
 		}
-		s5b->recv(1);
 	}
 }
 
