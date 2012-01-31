@@ -14,9 +14,9 @@
 #include <gloox/jid.h>
 #include <gloox/siprofileft.h>
 #include <gloox/siprofilefthandler.h>
-#include <gloox/socks5bytestream.h>
-#include <gloox/socks5bytestreamdatahandler.h>
-#include <gloox/socks5bytestreamserver.h>
+#include <gloox/bytestream.h>
+#include <gloox/bytestreamdatahandler.h>
+#include <gloox/bytestreamserver.h>
 #include <gloox/stanza.h>
 
 #include "common.h"
@@ -27,18 +27,18 @@ struct sender_task
 {
 	sender_handler* send_h;
 	pthread_t th;
-	gloox::SOCKS5Bytestream* bs;
+	gloox::Bytestream* bs;
 };
 
 class sender_handler:
 public gloox::ConnectionListener,
 public gloox::SIProfileFTHandler,
-public gloox::SOCKS5BytestreamDataHandler
+public gloox::BytestreamDataHandler
 {
 	public:
 	~sender_handler(void);
 	void init(gloox::SIProfileFT* ft, gloox::Client* cli,
-			gloox::SOCKS5BytestreamServer* serv, const char* r_uid,
+			gloox::BytestreamServer* serv, const char* r_uid,
 			const char* filename);
 	void onConnect(void);
 	bool onTLSConnect(const gloox::CertInfo& info);
@@ -52,26 +52,26 @@ public gloox::SOCKS5BytestreamDataHandler
 			const std::string& mimetype, const std::string& desc, int stypes,
 			long offset, long length);
 	void handleFTRequestError(gloox::Stanza* stanza, const std::string& sid);
-	void handleFTSOCKS5Bytestream(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Data(gloox::SOCKS5Bytestream* s5b,
+	void handleFTBytestream(gloox::Bytestream* s5b);
+	void handleData(gloox::Bytestream* s5b,
 			const std::string& data);
-	void handleSOCKS5Error(gloox::SOCKS5Bytestream* s5b, gloox::Stanza* stanza);
-	void handleSOCKS5Open(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Close(gloox::SOCKS5Bytestream* s5b);
+	void handleError(gloox::Bytestream* s5b, gloox::Stanza* stanza);
+	void handleOpen(gloox::Bytestream* s5b);
+	void handleClose(gloox::Bytestream* s5b);
 	void run_server_poll(void);
-	void run_data_transfer(gloox::SOCKS5Bytestream* s5b);
+	void run_data_transfer(gloox::Bytestream* s5b);
 	void remove_task(sender_task* task);
 	
 	private:
 	gloox::SIProfileFT* _ft;
 	gloox::Client* _cli;
-	gloox::SOCKS5BytestreamServer* _serv;
+	gloox::BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
 	pthread_t _server_th;
 	std::list<sender_task*> _task_l;
 	void _server_poll(void);
-	void _create_task(gloox::SOCKS5Bytestream* s5b);
+	void _create_task(gloox::Bytestream* s5b);
 };
 
 using namespace std;
@@ -89,7 +89,7 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	sender_handler send_h;
 	
 	int p_port_i = atoi(p_port);
-	SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
+	BytestreamServer* server = new BytestreamServer(
 			cli->logInstance(), p_port_i);
 	if (server->listen() not_eq ConnNoError)
 	{
@@ -101,7 +101,7 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	}
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
-	ft->registerSOCKS5BytestreamServer(server);
+	ft->registerBytestreamServer(server);
 	ft->addStreamHost(JID(p_id), "localhost", p_port_i);
 	send_h.init(ft, cli, server, r_uid, filename);
 
@@ -123,7 +123,7 @@ sender_handler::~sender_handler(void)
 }
 
 void sender_handler::init(SIProfileFT* ft, Client* cli,
-		SOCKS5BytestreamServer* serv, const char* r_uid, const char* filename)
+		BytestreamServer* serv, const char* r_uid, const char* filename)
 {
 	_ft = ft;
 	_serv = serv;
@@ -194,31 +194,31 @@ void sender_handler::handleFTRequestError(Stanza* stanza, const string& sid)
 	clog << "Handle FT request error" << endl;
 }
 
-void sender_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
+void sender_handler::handleFTBytestream(Bytestream* s5b)
 {
 	clog << "Handle bytestream" << endl;
 	_create_task(s5b);
 }
 
-void sender_handler::handleSOCKS5Data(SOCKS5Bytestream* s5b,
+void sender_handler::handleData(Bytestream* s5b,
 		const string& data)
 {
-	clog << "Handle SOCKS5 data" << endl;
+	clog << "Handle  data" << endl;
 }
 
-void sender_handler::handleSOCKS5Error(SOCKS5Bytestream* s5b, Stanza* stanza)
+void sender_handler::handleError(Bytestream* s5b, Stanza* stanza)
 {
-	clog << "Handle SOCKS5 error" << endl;
+	clog << "Handle  error" << endl;
 }
 
-void sender_handler::handleSOCKS5Open(SOCKS5Bytestream* s5b)
+void sender_handler::handleOpen(Bytestream* s5b)
 {
-	clog << "Handle SOCKS5 open" << endl;
+	clog << "Handle  open" << endl;
 }
 
-void sender_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
+void sender_handler::handleClose(Bytestream* s5b)
 {
-	clog << "Handle SOCKS5 close" << endl;
+	clog << "Handle  close" << endl;
 }
 
 void sender_handler::run_server_poll(void)
@@ -235,9 +235,9 @@ void sender_handler::run_server_poll(void)
 	clog << "No more bytestreams" << error << endl;
 }
 
-void sender_handler::run_data_transfer(SOCKS5Bytestream* s5b)
+void sender_handler::run_data_transfer(Bytestream* s5b)
 {
-	s5b->registerSOCKS5BytestreamDataHandler(this);
+	s5b->registerBytestreamDataHandler(this);
 	if (not s5b->connect())
 		cerr << " Bytestream connection error!" << endl;
 	else
@@ -265,7 +265,7 @@ void sender_handler::_server_poll(void)
 	pthread_create(&_server_th, NULL, server_poll_f, this);
 }
 
-void sender_handler::_create_task(SOCKS5Bytestream* s5b)
+void sender_handler::_create_task(Bytestream* s5b)
 {
 	sender_task* task = new sender_task;
 	task->send_h = this;

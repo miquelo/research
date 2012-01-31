@@ -16,8 +16,8 @@
 #include <gloox/jid.h>
 #include <gloox/siprofileft.h>
 #include <gloox/siprofilefthandler.h>
-#include <gloox/socks5bytestream.h>
-#include <gloox/socks5bytestreamdatahandler.h>
+#include <gloox/bytestream.h>
+#include <gloox/bytestreamdatahandler.h>
 #include <gloox/stanza.h>
 
 #include "common.h"
@@ -28,13 +28,13 @@ struct receiver_task
 {
 	receiver_handler* recv_h;
 	pthread_t th;
-	gloox::SOCKS5Bytestream* bs;
+	gloox::Bytestream* bs;
 };
 
 class receiver_handler:
 public gloox::ConnectionListener,
 public gloox::SIProfileFTHandler,
-public gloox::SOCKS5BytestreamDataHandler
+public gloox::BytestreamDataHandler
 {
 	public:
 	~receiver_handler(void);
@@ -51,19 +51,19 @@ public gloox::SOCKS5BytestreamDataHandler
 			const std::string& mimetype, const std::string& desc, int stypes,
 			long offset, long length);
 	void handleFTRequestError(gloox::Stanza* stanza, const std::string& sid);
-	void handleFTSOCKS5Bytestream(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Data(gloox::SOCKS5Bytestream* s5b,
+	void handleFTBytestream(gloox::Bytestream* s5b);
+	void handleData(gloox::Bytestream* s5b,
 			const std::string& data);
-	void handleSOCKS5Error(gloox::SOCKS5Bytestream* s5b, gloox::Stanza* stanza);
-	void handleSOCKS5Open(gloox::SOCKS5Bytestream* s5b);
-	void handleSOCKS5Close(gloox::SOCKS5Bytestream* s5b);
-	void run_data_transfer(gloox::SOCKS5Bytestream* s5b);
+	void handleError(gloox::Bytestream* s5b, gloox::Stanza* stanza);
+	void handleOpen(gloox::Bytestream* s5b);
+	void handleClose(gloox::Bytestream* s5b);
+	void run_data_transfer(gloox::Bytestream* s5b);
 	void remove_task(receiver_task* task);
 	
 	private:
 	gloox::SIProfileFT* _ft;
 	std::list<receiver_task*> _task_l;
-	void _create_task(gloox::SOCKS5Bytestream* s5b);
+	void _create_task(gloox::Bytestream* s5b);
 };
 
 using namespace std;
@@ -151,36 +151,36 @@ void receiver_handler::handleFTRequestError(Stanza* stanza, const string& sid)
 	clog << "Handle FT request error" << endl;
 }
 
-void receiver_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
+void receiver_handler::handleFTBytestream(Bytestream* s5b)
 {
 	clog << "Handle bytestream" << endl;
 	_create_task(s5b);
 }
 
-void receiver_handler::handleSOCKS5Data(SOCKS5Bytestream* s5b,
+void receiver_handler::handleData(Bytestream* s5b,
 		const string& data)
 {
-	clog << "Handle SOCKS5 data" << endl;
+	clog << "Handle  data" << endl;
 }
 
-void receiver_handler::handleSOCKS5Error(SOCKS5Bytestream* s5b, Stanza* stanza)
+void receiver_handler::handleError(Bytestream* s5b, Stanza* stanza)
 {
-	clog << "Handle SOCKS5 error" << endl;
+	clog << "Handle  error" << endl;
 }
 
-void receiver_handler::handleSOCKS5Open(SOCKS5Bytestream* s5b)
+void receiver_handler::handleOpen(Bytestream* s5b)
 {
-	clog << "Handle SOCKS5 open" << endl;
+	clog << "Handle  open" << endl;
 }
 
-void receiver_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
+void receiver_handler::handleClose(Bytestream* s5b)
 {
-	clog << "Handle SOCKS5 close" << endl;
+	clog << "Handle  close" << endl;
 }
 
-void receiver_handler::run_data_transfer(SOCKS5Bytestream* s5b)
+void receiver_handler::run_data_transfer(Bytestream* s5b)
 {
-	s5b->registerSOCKS5BytestreamDataHandler(this);
+	s5b->registerBytestreamDataHandler(this);
 	if (not s5b->connect())
 		cerr << " Bytestream connection error!" << endl;
 	else
@@ -201,7 +201,7 @@ void receiver_handler::remove_task(receiver_task* task)
 	delete task;
 }
 
-void receiver_handler::_create_task(SOCKS5Bytestream* s5b)
+void receiver_handler::_create_task(Bytestream* s5b)
 {
 	receiver_task* task = new receiver_task;
 	task->recv_h = this;
