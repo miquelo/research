@@ -37,8 +37,7 @@ public gloox::BytestreamDataHandler
 {
 	public:
 	~sender_handler(void);
-	void init(gloox::SIProfileFT* ft, gloox::Client* cli,
-			/*gloox::SOCKS5BytestreamServer* serv,*/ const char* r_uid,
+	void init(gloox::SIProfileFT* ft, gloox::Client* cli, const char* r_uid,
 			const char* filename);
 	void onConnect(void);
 	bool onTLSConnect(const gloox::CertInfo& info);
@@ -59,32 +58,26 @@ public gloox::BytestreamDataHandler
 	void handleBytestreamError(gloox::Bytestream* bs, const gloox::IQ& iq);
 	void handleBytestreamOpen(gloox::Bytestream* bs);
 	void handleBytestreamClose(gloox::Bytestream* bs);
-	void run_server_poll(void);
 	void run_data_transfer(gloox::Bytestream* bs);
 	void remove_task(sender_task* task);
 	
 	private:
 	gloox::SIProfileFT* _ft;
 	gloox::Client* _cli;
-	//gloox::SOCKS5BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
 	pthread_t _server_th;
 	std::list<sender_task*> _task_l;
-	void _server_poll(void);
 	void _create_task(gloox::Bytestream* bs);
 };
 
 using namespace std;
 using namespace gloox;
 
-bool cont = true; // TODO FIX Cal utilitzar un semàfor, això és lleig
-
-static void* server_poll_f(void* arg);
 static void* data_transfer_f(void* arg);
 
-int sender_main(const char* p_port, const char* s_uid, const char* s_pass,
-		const char* r_uid, const char* filename)
+int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
+		const char* filename)
 {
 	JID jid(s_uid);
 	Client* cli = new Client(jid, s_pass);
@@ -92,27 +85,16 @@ int sender_main(const char* p_port, const char* s_uid, const char* s_pass,
 	sender_handler send_h;
 	
 	int p_port_i = atoi(p_port);
-	/*SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
-			cli->logInstance(), p_port_i);
-	if (server->listen() not_eq ConnNoError)
-	{
-		cerr << "Port " << p_port_i << " in use!" << endl;
-		delete server;
-		delete cli;
-		
-		return EXIT_FAILURE;
-	}*/
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
-	/*ft->registerSOCKS5BytestreamServer(server);
-	ft->addStreamHost(cli->jid(), "localhost", p_port_i);*/
-	ft->addStreamHost(JID("test.proxy"), "46.4.174.222", 8777);
-	send_h.init(ft, cli, /*server,*/ r_uid, filename);
+	send_h.init(ft, cli, r_uid, filename);
+	ft->addStreamHost(JID("reflector.amessage.eu"), "reflector.amessage.eu",
+			6565);
+	ft->addStreamHost(JID("proxy.jabber.org"), "208.245.212.98", 7777);
 
 	cli->registerConnectionListener(&send_h);
 	cli->connect();
 
-	//delete server;
 	delete ft;
 	delete cli;
 	
@@ -126,11 +108,10 @@ sender_handler::~sender_handler(void)
 		pthread_join((*it++)->th, NULL);
 }
 
-void sender_handler::init(SIProfileFT* ft, Client* cli,
-		/*SOCKS5BytestreamServer* serv,*/ const char* r_uid, const char* filename)
+void sender_handler::init(SIProfileFT* ft, Client* cli, const char* r_uid,
+		const char* filename)
 {
 	_ft = ft;
-	//_serv = serv;
 	_cli = cli;
 	_r_uid = r_uid;
 	_filename = filename;
@@ -148,10 +129,7 @@ void sender_handler::onConnect(void)
 	
 	JID jid(_r_uid);
 	if (not _ft->requestFT(jid, _filename, f_size).empty())
-	{
 		clog << " Request done." << endl;
-		_server_poll();
-	}
 }
 
 bool sender_handler::onTLSConnect(const CertInfo& info)
@@ -200,8 +178,6 @@ void sender_handler::handleFTRequestError(const IQ& iq, const string& sid)
 
 void sender_handler::handleFTBytestream(Bytestream* bs)
 {
-	cont = false; // TODO FIX Cal utilitzar un semàfor
-	
 	clog << "Handle bytestream" << endl;
 	_create_task(bs);
 }
@@ -214,32 +190,22 @@ const string sender_handler::handleOOBRequestResult(const JID& from,
 
 void sender_handler::handleBytestreamData(Bytestream* bs, const string& data)
 {
-	clog << "Handle  data" << endl;
+	clog << "Handle data" << endl;
 }
 
 void sender_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
 {
-	clog << "Handle  error" << endl;
+	clog << "Handle error" << endl;
 }
 
 void sender_handler::handleBytestreamOpen(Bytestream* bs)
 {
-	clog << "Handle  open" << endl;
+	clog << "Handle open" << endl;
 }
 
 void sender_handler::handleBytestreamClose(Bytestream* bs)
 {
-	clog << "Handle  close" << endl;
-}
-
-void sender_handler::run_server_poll(void)
-{
-	clog << " Connection status: " << _cli->recv(1) << endl;
-	clog << " Receiving bytestreams from server..." << endl;
-	
-	/*ConnectionError error = _serv->recv(1);
-	while (error == ConnNoError and cont)
-		error = _serv->recv(100);*/
+	clog << "Handle close" << endl;
 }
 
 void sender_handler::run_data_transfer(Bytestream* bs)
@@ -250,14 +216,11 @@ void sender_handler::run_data_transfer(Bytestream* bs)
 	else
 	{
 		clog << "Running data transfer" << endl;
-		bool opened = bs->isOpen();
-		clog << "Bytestream opened: " << opened << endl;
-		if (opened)
-		{
-			bs->send("data");
-			clog << "Send done." << endl;
-		}
-		bs->recv(1);
+		while (not bs->isOpen())
+			bs->recv(1);
+		clog << "Bytestream opened" << endl;
+		bs->send("data");
+		clog << "Send done." << endl;
 	}
 }
 
@@ -265,11 +228,6 @@ void sender_handler::remove_task(sender_task* task)
 {
 	_task_l.remove(task);
 	delete task;
-}
-
-void sender_handler::_server_poll(void)
-{
-	pthread_create(&_server_th, NULL, server_poll_f, this);
 }
 
 void sender_handler::_create_task(Bytestream* bs)
@@ -280,12 +238,6 @@ void sender_handler::_create_task(Bytestream* bs)
 	pthread_create(&task->th, NULL, data_transfer_f, task);
 	
 	_task_l.push_back(task);
-}
-
-void* server_poll_f(void* arg)
-{
-	static_cast<sender_handler*>(arg)->run_server_poll();
-	return NULL;
 }
 
 void* data_transfer_f(void* arg)

@@ -83,6 +83,8 @@ int receiver_main(const char* r_uid, const char* r_pass)
 
 	cli->registerConnectionListener(&recv_h);
 	cli->connect();
+	
+	cerr << cli->streamError() << endl;
 
 	delete ft;
 	delete cli;
@@ -122,7 +124,7 @@ void receiver_handler::onDisconnect(ConnectionError error)
 {
 	clog << "Connection closed." << endl;
 	if (error not_eq ConnNoError)
-		cerr << "Because there was a connection error..." << endl;
+		cerr << " Because there was a connection error: " << error << endl;
 }
 
 void receiver_handler::onResourceBindError(ResourceBindError error)
@@ -166,22 +168,22 @@ const string receiver_handler::handleOOBRequestResult(const JID& from,
 
 void receiver_handler::handleBytestreamData(Bytestream* bs, const string& data)
 {
-	clog << "Handle  data" << endl;
+	clog << "Handle data" << endl;
 }
 
 void receiver_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
 {
-	clog << "Handle  error" << endl;
+	clog << "Handle error" << endl;
 }
 
 void receiver_handler::handleBytestreamOpen(Bytestream* bs)
 {
-	clog << "Handle  open" << endl;
+	clog << "Handle open" << endl;
 }
 
 void receiver_handler::handleBytestreamClose(Bytestream* bs)
 {
-	clog << "Handle  close" << endl;
+	clog << "Handle close" << endl;
 }
 
 void receiver_handler::run_data_transfer(Bytestream* bs)
