@@ -2,5 +2,5 @@
 
 Les eines típiques de compilació incloent el <tt>pkg-config</tt>. A més,
 òbviament, aquest petit projecte necessita la biblioteca i els fitxers de
-desenvolupament del GLOOX (>= 0.9). Si tens alguna cosa basada en Debian ho
+desenvolupament del GLOOX (>= 1.0). Si tens alguna cosa basada en Debian ho
 trobaràs en el paquest <tt>libgloox-dev</tt>.
