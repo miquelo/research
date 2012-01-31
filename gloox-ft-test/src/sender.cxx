@@ -84,8 +84,6 @@ int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
 	
 	sender_handler send_h;
 	
-	int p_port_i = atoi(p_port);
-	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	send_h.init(ft, cli, r_uid, filename);
 	ft->addStreamHost(JID("reflector.amessage.eu"), "reflector.amessage.eu",
