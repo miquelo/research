@@ -38,7 +38,7 @@ public gloox::BytestreamDataHandler
 	public:
 	~sender_handler(void);
 	void init(gloox::SIProfileFT* ft, gloox::Client* cli,
-			gloox::SOCKS5BytestreamServer* serv, const char* r_uid,
+			/*gloox::SOCKS5BytestreamServer* serv,*/ const char* r_uid,
 			const char* filename);
 	void onConnect(void);
 	bool onTLSConnect(const gloox::CertInfo& info);
@@ -66,7 +66,7 @@ public gloox::BytestreamDataHandler
 	private:
 	gloox::SIProfileFT* _ft;
 	gloox::Client* _cli;
-	gloox::SOCKS5BytestreamServer* _serv;
+	//gloox::SOCKS5BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
 	pthread_t _server_th;
@@ -78,11 +78,13 @@ public gloox::BytestreamDataHandler
 using namespace std;
 using namespace gloox;
 
+bool cont = true; // TODO FIX Cal utilitzar un semàfor, això és lleig
+
 static void* server_poll_f(void* arg);
 static void* data_transfer_f(void* arg);
 
-int sender_main(const char* p_id, const char* p_port, const char* s_uid,
-		const char* s_pass, const char* r_uid, const char* filename)
+int sender_main(const char* p_port, const char* s_uid, const char* s_pass,
+		const char* r_uid, const char* filename)
 {
 	JID jid(s_uid);
 	Client* cli = new Client(jid, s_pass);
@@ -90,26 +92,27 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	sender_handler send_h;
 	
 	int p_port_i = atoi(p_port);
-	SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
-			cli->logInstance(), 8777);
+	/*SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
+			cli->logInstance(), p_port_i);
 	if (server->listen() not_eq ConnNoError)
 	{
-		cerr << "Port 8777 in use!" << endl;
+		cerr << "Port " << p_port_i << " in use!" << endl;
 		delete server;
 		delete cli;
 		
 		return EXIT_FAILURE;
-	}
+	}*/
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
-	ft->registerSOCKS5BytestreamServer(server);
+	/*ft->registerSOCKS5BytestreamServer(server);
+	ft->addStreamHost(cli->jid(), "localhost", p_port_i);*/
 	ft->addStreamHost(JID("test.proxy"), "46.4.174.222", 8777);
-	send_h.init(ft, cli, server, r_uid, filename);
+	send_h.init(ft, cli, /*server,*/ r_uid, filename);
 
 	cli->registerConnectionListener(&send_h);
 	cli->connect();
 
-	delete server;
+	//delete server;
 	delete ft;
 	delete cli;
 	
@@ -124,10 +127,10 @@ sender_handler::~sender_handler(void)
 }
 
 void sender_handler::init(SIProfileFT* ft, Client* cli,
-		SOCKS5BytestreamServer* serv, const char* r_uid, const char* filename)
+		/*SOCKS5BytestreamServer* serv,*/ const char* r_uid, const char* filename)
 {
 	_ft = ft;
-	_serv = serv;
+	//_serv = serv;
 	_cli = cli;
 	_r_uid = r_uid;
 	_filename = filename;
@@ -197,6 +200,8 @@ void sender_handler::handleFTRequestError(const IQ& iq, const string& sid)
 
 void sender_handler::handleFTBytestream(Bytestream* bs)
 {
+	cont = false; // TODO FIX Cal utilitzar un semàfor
+	
 	clog << "Handle bytestream" << endl;
 	_create_task(bs);
 }
@@ -232,13 +237,9 @@ void sender_handler::run_server_poll(void)
 	clog << " Connection status: " << _cli->recv(1) << endl;
 	clog << " Receiving bytestreams from server..." << endl;
 	
-	ConnectionError error = _serv->recv(100000);
-	while (error == ConnNoError)
-	{
-		clog << "New bytestream received" << endl;
-		error = _serv->recv(100000);
-	}
-	clog << "No more bytestreams" << error << endl;
+	/*ConnectionError error = _serv->recv(1);
+	while (error == ConnNoError and cont)
+		error = _serv->recv(100);*/
 }
 
 void sender_handler::run_data_transfer(Bytestream* bs)

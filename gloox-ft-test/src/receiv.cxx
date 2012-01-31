@@ -79,7 +79,6 @@ int receiver_main(const char* r_uid, const char* r_pass)
 	receiver_handler recv_h;
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &recv_h);
-	ft->addStreamHost(JID("test.proxy"), "46.4.174.222", 8777);
 	recv_h.init(ft);
 
 	cli->registerConnectionListener(&recv_h);
