@@ -91,10 +91,10 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	
 	int p_port_i = atoi(p_port);
 	SOCKS5BytestreamServer* server = new SOCKS5BytestreamServer(
-			cli->logInstance(), p_port_i);
+			cli->logInstance(), 8777);
 	if (server->listen() not_eq ConnNoError)
 	{
-		cerr << "Port " << p_port_i << " in use!" << endl;
+		cerr << "Port 8777 in use!" << endl;
 		delete server;
 		delete cli;
 		
@@ -103,7 +103,7 @@ int sender_main(const char* p_id, const char* p_port, const char* s_uid,
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	ft->registerSOCKS5BytestreamServer(server);
-	ft->addStreamHost(JID(p_id), "localhost", p_port_i);
+	ft->addStreamHost(JID("test.proxy"), "46.4.174.222", 8777);
 	send_h.init(ft, cli, server, r_uid, filename);
 
 	cli->registerConnectionListener(&send_h);
