@@ -5,7 +5,7 @@
  */
 
 #include <cstdlib>
-#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <list>
 
@@ -62,6 +62,7 @@ public gloox::BytestreamDataHandler
 	void remove_task(receiver_task* task);
 	
 	private:
+	std::ofstream* _file;
 	gloox::SIProfileFT* _ft;
 	std::list<receiver_task*> _task_l;
 	void _create_task(gloox::Bytestream* bs);
@@ -168,7 +169,7 @@ const string receiver_handler::handleOOBRequestResult(const JID& from,
 
 void receiver_handler::handleBytestreamData(Bytestream* bs, const string& data)
 {
-	clog << "Handle data" << endl;
+	_file->write(data.c_str(), data.size());
 }
 
 void receiver_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
@@ -179,11 +180,14 @@ void receiver_handler::handleBytestreamError(Bytestream* bs, const IQ& iq)
 void receiver_handler::handleBytestreamOpen(Bytestream* bs)
 {
 	clog << "Handle open" << endl;
+	_file = new ofstream("test-received-file");
 }
 
 void receiver_handler::handleBytestreamClose(Bytestream* bs)
 {
 	clog << "Handle close" << endl;
+	_file->close();
+	delete _file;
 }
 
 void receiver_handler::run_data_transfer(Bytestream* bs)
@@ -196,10 +200,8 @@ void receiver_handler::run_data_transfer(Bytestream* bs)
 		clog << "Running data transfer" << endl;
 	
 		ConnectionError error = ConnNoError;
-		while ((error = bs->recv()) == ConnNoError)
-		{
-		}
-		clog << "Transfer finished. Temination code: " << error << endl;
+		while ((error = bs->recv()) == ConnNoError);
+		clog << "Transfer finished. Termination code: " << error << endl;
 	}
 }
 

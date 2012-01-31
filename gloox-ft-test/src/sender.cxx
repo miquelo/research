@@ -217,7 +217,18 @@ void sender_handler::run_data_transfer(Bytestream* bs)
 		while (not bs->isOpen())
 			bs->recv(1);
 		clog << "Bytestream opened" << endl;
-		bs->send("data");
+		
+		const size_t buf_size = 8 * 1024;
+		char input[buf_size];
+		ifstream file(_filename);
+		
+		while (bs->isOpen() and not file.eof())
+		{
+			file.read(input, buf_size);
+			if (not bs->send(string(input, file.gcount())))
+				cerr << "Sending failed" << endl;
+		}
+		bs->close();
 		clog << "Send done." << endl;
 	}
 }
