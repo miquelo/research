@@ -8,5 +8,5 @@ EXTRADIST = \
 	AUTHORS \
 	ChangeLog \
 	NEWS \
-	README \
+	README.mediawiki \
 	TODO

@@ -1,27 +1,27 @@
 == Què necessites? ==
 
-Les eines típiques de compilació incloent el 'pkg-config'. A més, òbviament,
-aquest petit projecte necessita la biblioteca i els fitxers de desenvolupament
-del GLOOX (>= 0.9). Si tens alguna cosa basada en Debian ho trobaràs en el
-paquest 'libgloox-dev'.
+Les eines típiques de compilació incloent el <tt>pkg-config</tt>. A més,
+òbviament, aquest petit projecte necessita la biblioteca i els fitxers de
+desenvolupament del GLOOX (>= 0.9). Si tens alguna cosa basada en Debian ho
+trobaràs en el paquest <tt>libgloox-dev</tt>.
 
-Petit problema amb el 'pkg-config' i 'gloox'
---------------------------------------------
+== Petit problema amb el <tt>pkg-config</tt> i <tt>gloox</tt> ==
 
-Am l'Ubuntu 10.04, almenys, no es configura correctament el 'pkg-config' per
-trobar les capçaleres del 'gloox' (0.9.9.5), si més no, quan l'instal·les amb
-'apt'. Si és el teu cas, segueix les següents instruccions.
+Am l'Ubuntu 10.04, almenys, no es configura correctament el <tt>pkg-config</tt>
+per trobar les capçaleres del <tt>gloox</tt> (0.9.9.5), si més no, quan
+l'instal·les amb <tt>apt</tt>. Si és el teu cas, segueix les següents
+instruccions.
 
-Edita el fitxer gloox.pc del 'pkg-config'. Podria ser
+Edita el fitxer gloox.pc del <tt>pkg-config</tt>. Podria ser
 
-# nano /usr/lib/pkgconfig/gloox.pc
+<code># nano /usr/lib/pkgconfig/gloox.pc</code>
 
 Si veus la línia
 
-Cflags: -I${includedir}
+<code>Cflags: -I${includedir}</code>
 
 Canvia-la per
 
-Cflags: -I${includedir}/gloox
+<code>Cflags: -I${includedir}/gloox</code>
 
 I ja podràs compilar feliçment.
