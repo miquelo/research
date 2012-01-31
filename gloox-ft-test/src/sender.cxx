@@ -218,7 +218,7 @@ void sender_handler::run_data_transfer(Bytestream* bs)
 			bs->recv(1);
 		clog << "Bytestream opened" << endl;
 		
-		const size_t buf_size = 8 * 1024;
+		const size_t buf_size = 32 * 1024;
 		char input[buf_size];
 		ifstream file(_filename);
 		
