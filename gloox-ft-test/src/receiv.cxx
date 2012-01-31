@@ -11,14 +11,14 @@
 
 #include <pthread.h>
 
-#include <client.h>
-#include <connectionlistener.h>
-#include <jid.h>
-#include <siprofileft.h>
-#include <siprofilefthandler.h>
-#include <socks5bytestream.h>
-#include <socks5bytestreamdatahandler.h>
-#include <stanza.h>
+#include <gloox/client.h>
+#include <gloox/connectionlistener.h>
+#include <gloox/jid.h>
+#include <gloox/siprofileft.h>
+#include <gloox/siprofilefthandler.h>
+#include <gloox/socks5bytestream.h>
+#include <gloox/socks5bytestreamdatahandler.h>
+#include <gloox/stanza.h>
 
 #include "common.h"
 
