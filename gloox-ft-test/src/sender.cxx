@@ -6,6 +6,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 
 #include <client.h>
@@ -57,6 +58,9 @@ public gloox::SOCKS5BytestreamDataHandler
 	void handleSOCKS5Error(gloox::SOCKS5Bytestream* s5b, gloox::Stanza* stanza);
 	void handleSOCKS5Open(gloox::SOCKS5Bytestream* s5b);
 	void handleSOCKS5Close(gloox::SOCKS5Bytestream* s5b);
+	void run_server_poll(void);
+	void run_data_transfer(gloox::SOCKS5Bytestream* s5b);
+	void remove_task(sender_task* task);
 	
 	private:
 	gloox::SIProfileFT* _ft;
@@ -64,12 +68,16 @@ public gloox::SOCKS5BytestreamDataHandler
 	gloox::SOCKS5BytestreamServer* _serv;
 	const char* _r_uid;
 	const char* _filename;
+	pthread_t _server_th;
 	std::list<sender_task*> _task_l;
+	void _server_poll(void);
+	void _create_task(gloox::SOCKS5Bytestream* s5b);
 };
 
 using namespace std;
 using namespace gloox;
 
+static void* server_poll_f(void* arg);
 static void* data_transfer_f(void* arg);
 
 int sender_main(const char* p_id, const char* p_port, const char* s_uid,
@@ -127,16 +135,18 @@ void sender_handler::init(SIProfileFT* ft, Client* cli,
 void sender_handler::onConnect(void)
 {
 	clog << "Connection established..." << endl;
-	clog << "Starting transfer" << endl;
+	clog << "Starting transfer";
+	
+	ifstream ifs(_filename);
+	ifs.seekg(0, ios::end);
+	long f_size = ifs.tellg() + 1l;
+	clog << " of " << f_size << " bytes" << endl;
 	
 	JID jid(_r_uid);
-	if (not _ft->requestFT(jid, _filename, 851).empty())
+	if (not _ft->requestFT(jid, _filename, f_size).empty())
 	{
 		clog << " Request done." << endl;
-		clog << " Connection status: " << _cli->recv(1) << endl;
-		clog << " Receiving bytestreams from server...";
-		while (true)
-			_serv->recv(1);
+		_server_poll();
 	}
 }
 
@@ -187,8 +197,7 @@ void sender_handler::handleFTRequestError(Stanza* stanza, const string& sid)
 void sender_handler::handleFTSOCKS5Bytestream(SOCKS5Bytestream* s5b)
 {
 	clog << "Handle bytestream" << endl;
-	
-	// XXX No arriba aquí!!!
+	_create_task(s5b);
 }
 
 void sender_handler::handleSOCKS5Data(SOCKS5Bytestream* s5b,
@@ -212,8 +221,73 @@ void sender_handler::handleSOCKS5Close(SOCKS5Bytestream* s5b)
 	clog << "Handle SOCKS5 close" << endl;
 }
 
+void sender_handler::run_server_poll(void)
+{
+	clog << " Connection status: " << _cli->recv(1) << endl;
+	clog << " Receiving bytestreams from server..." << endl;
+	
+	ConnectionError error = _serv->recv(100000);
+	while (error == ConnNoError)
+	{
+		clog << "New bytestream received" << endl;
+		error = _serv->recv(100000);
+	}
+	clog << "No more bytestreams" << error << endl;
+}
+
+void sender_handler::run_data_transfer(SOCKS5Bytestream* s5b)
+{
+	s5b->registerSOCKS5BytestreamDataHandler(this);
+	if (not s5b->connect())
+		cerr << " Bytestream connection error!" << endl;
+	else
+	{
+		clog << "Running data transfer" << endl;
+		bool opened = s5b->isOpen();
+		clog << "Bytestream opened: " << opened << endl;
+		if (opened)
+		{
+			s5b->send("data");
+			clog << "Send done." << endl;
+		}
+		s5b->recv(1);
+	}
+}
+
+void sender_handler::remove_task(sender_task* task)
+{
+	_task_l.remove(task);
+	delete task;
+}
+
+void sender_handler::_server_poll(void)
+{
+	pthread_create(&_server_th, NULL, server_poll_f, this);
+}
+
+void sender_handler::_create_task(SOCKS5Bytestream* s5b)
+{
+	sender_task* task = new sender_task;
+	task->send_h = this;
+	task->bs = s5b;
+	pthread_create(&task->th, NULL, data_transfer_f, task);
+	
+	_task_l.push_back(task);
+}
+
+void* server_poll_f(void* arg)
+{
+	static_cast<sender_handler*>(arg)->run_server_poll();
+	return NULL;
+}
+
 void* data_transfer_f(void* arg)
 {
-	sender_handler* send_h = static_cast<sender_handler*>(arg);
+	sender_task* task = static_cast<sender_task*>(arg);
+	sender_handler* send_h = task->send_h;
+
+	send_h->run_data_transfer(task->bs);
+	
+	send_h->remove_task(task);
 	return NULL;
 }
