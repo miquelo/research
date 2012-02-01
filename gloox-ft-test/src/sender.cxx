@@ -78,7 +78,7 @@ static void* server_exec_f(void* arg);
 static void* data_transfer_f(void* arg);
 
 int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
-		const char* filename)
+		const char* filename, const char* p_port)
 {
 	JID jid(s_uid);
 	Client* cli = new Client(jid, s_pass);
@@ -87,19 +87,28 @@ int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	send_h.init(ft, cli, r_uid, filename);
-	/*ft->addStreamHost(JID("reflector.amessage.eu"), "reflector.amessage.eu",
-			6565);*/
-	//ft->addStreamHost(JID("proxy.jabber.org"), "208.245.212.98", 7777);
 	
-	SOCKS5BytestreamServer* serv = new SOCKS5BytestreamServer(
-			cli->logInstance(), 1234);
-	if (serv->listen() not_eq ConnNoError)
-		cerr << "Port 1234 in use" << endl;
-	pthread_t serv_th;
-	ft->registerSOCKS5BytestreamServer(serv);
-	ft->addStreamHost(cli->jid(), "localhost", 1234);
-	pthread_create(&serv_th, NULL, server_exec_f, serv);
-
+	if (p_port > 0)
+	{
+		int p_port_i = atoi(p_port);
+		SOCKS5BytestreamServer* serv = new SOCKS5BytestreamServer(
+				cli->logInstance(), p_port_i);
+		if (serv->listen() not_eq ConnNoError)
+			cerr << "Port " << p_port_i << " in use" << endl;
+			
+		ft->registerSOCKS5BytestreamServer(serv);
+		ft->addStreamHost(cli->jid(), "localhost", p_port_i);
+		
+		pthread_t serv_th;
+		pthread_create(&serv_th, NULL, server_exec_f, serv);
+	}
+	else
+	{
+		ft->addStreamHost(JID("reflector.amessage.eu"),
+				"reflector.amessage.eu", 6565);
+		ft->addStreamHost(JID("proxy.jabber.org"), "208.245.212.98", 7777);
+	}
+	
 	cli->registerConnectionListener(&send_h);
 	cli->connect();
 
