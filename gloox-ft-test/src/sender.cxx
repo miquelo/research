@@ -88,7 +88,7 @@ int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	send_h.init(ft, cli, r_uid, filename);
 	
-	if (p_port > 0)
+	if (p_port not_eq NULL)
 	{
 		int p_port_i = atoi(p_port);
 		SOCKS5BytestreamServer* serv = new SOCKS5BytestreamServer(

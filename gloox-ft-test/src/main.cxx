@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
 	if (argc > 1)
 	{
 		if (strcmp(argv[1], "send") == 0 and argc == 6)
-			return sender_main(argv[2], argv[3], argv[4], argv[5], 0);
+			return sender_main(argv[2], argv[3], argv[4], argv[5], NULL);
 		if (strcmp(argv[1], "send") == 0 and argc == 7)
 			return sender_main(argv[3], argv[4], argv[5], argv[6], argv[2]);
 		if (strcmp(argv[1], "receive") == 0 and argc == 4)
