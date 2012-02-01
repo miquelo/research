@@ -74,6 +74,7 @@ public gloox::BytestreamDataHandler
 using namespace std;
 using namespace gloox;
 
+static void* server_exec_f(void* arg);
 static void* data_transfer_f(void* arg);
 
 int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
@@ -86,9 +87,18 @@ int sender_main(const char* s_uid, const char* s_pass, const char* r_uid,
 	
 	SIProfileFT* ft = new SIProfileFT(cli, &send_h);
 	send_h.init(ft, cli, r_uid, filename);
-	ft->addStreamHost(JID("reflector.amessage.eu"), "reflector.amessage.eu",
-			6565);
-	ft->addStreamHost(JID("proxy.jabber.org"), "208.245.212.98", 7777);
+	/*ft->addStreamHost(JID("reflector.amessage.eu"), "reflector.amessage.eu",
+			6565);*/
+	//ft->addStreamHost(JID("proxy.jabber.org"), "208.245.212.98", 7777);
+	
+	SOCKS5BytestreamServer* serv = new SOCKS5BytestreamServer(
+			cli->logInstance(), 1234);
+	if (serv->listen() not_eq ConnNoError)
+		cerr << "Port 1234 in use" << endl;
+	pthread_t serv_th;
+	ft->registerSOCKS5BytestreamServer(serv);
+	ft->addStreamHost(cli->jid(), "localhost", 1234);
+	pthread_create(&serv_th, NULL, server_exec_f, serv);
 
 	cli->registerConnectionListener(&send_h);
 	cli->connect();
@@ -247,6 +257,12 @@ void sender_handler::_create_task(Bytestream* bs)
 	pthread_create(&task->th, NULL, data_transfer_f, task);
 	
 	_task_l.push_back(task);
+}
+
+void* server_exec_f(void* arg)
+{
+	SOCKS5BytestreamServer* serv = static_cast<SOCKS5BytestreamServer*>(arg);
+	while (serv->recv(1) == ConnNoError);
 }
 
 void* data_transfer_f(void* arg)
